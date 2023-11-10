@@ -9,7 +9,7 @@ def load_weather_data(file_path:str="../data/raw/weather_features.csv", date:str
     df = pd.read_csv(file_path, parse_dates=[date])
     return df
 
-def load_preprocessed_data(file_path:str="../data/processed/financial_distress.pkl") -> pd.DataFrame: 
+def load_preprocessed_data(file_path:str="../data/processed/processed_merged_data.pkl") -> pd.DataFrame: 
     df = pd.read_pickle(file_path)
     return df
 
