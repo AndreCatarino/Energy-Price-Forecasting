@@ -3,7 +3,9 @@ from tensorflow import keras
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import joblib
 from tcn import TCN
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 class deepL():
     def __init__(self, X_train:pd.DataFrame, X_val:pd.DataFrame) -> None:
@@ -47,10 +49,32 @@ class deepL():
         else:
             raise ValueError("Invalid model name.")
         
-    def evaluate(self, model_name, X, y):
+    def evaluate(self, model_name:str) -> tuple:
         model = self.models.get(model_name)
         if model is not None:
-            pass
+            y_pred = model.predict(self.test_set)
+            y_pred = y_pred.reshape(-1, 1)
+            print(len(y_pred))
+
+            y_batch_list = []
+            for _, y_batch in self.test_set:
+                y_batch_list.append(y_batch.numpy())
+
+            y_batch_list = np.array(y_batch_list)
+            y_batch_list = y_batch_list.reshape(-1, 1)
+
+            # load scaler
+            scaler = joblib.load("../artifacts/scaler.pkl")
+            pred = scaler.inverse_transform(y_pred)
+            original_target = scaler.inverse_transform(y_batch_list)
+
+            mae = mean_absolute_error(original_target, pred)
+            mse = mean_squared_error(original_target, pred)
+            rmse = np.sqrt(mse)
+            r2 = r2_score(original_target, pred)
+
+            return mae, mse, rmse, r2
+
         else:
             raise ValueError("Invalid model name.")
 
