@@ -35,20 +35,21 @@ class DataProcessor:
         self.y = self.data[target_column]
         return self.X, self.y
 
-    def scale(self, X:pd.DataFrame=Optional) -> pd.DataFrame:
+    def scale(self, data:pd.DataFrame=Optional) -> pd.DataFrame:
         """ 
         Scale the data using StandardScaler
         :return: Scaled features dataframe
         """
         scaler = StandardScaler()
-        if X is None and self.X is not None:
-            scaled_X = scaler.fit_transform(self.X)
-            self.X = pd.DataFrame(scaled_X, columns=self.X.columns)
-        elif X is not None:
-            scaled_X = scaler.fit_transform(X)
+        if data is not pd.DataFrame and self.data is not None:
+            scaled_data = scaler.fit_transform(self.data)
+            self.data = pd.DataFrame(scaled_data, columns=self.data.columns)
+            return self.data
+        elif data is not None:
+            scaled_X = scaler.fit_transform(data)
         else:
             raise Exception("Feature matrix not found. Run create_feature_matrix_and_target_vector() first.")
-        return pd.DataFrame(scaled_X, columns=self.X.columns)
+        return pd.DataFrame(scaled_X, columns=self.data.columns)
     
     def set_index_datetime(self, idx_column:str) -> None:
         """
