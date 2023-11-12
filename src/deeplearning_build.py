@@ -8,11 +8,9 @@ from tcn import TCN
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 class deepL():
-    def __init__(self, X_train:pd.DataFrame, X_val:pd.DataFrame) -> None:
+    def __init__(self) -> None:
         """
         Initialize the class
-        :param X_train: Training data
-        :param X_val: Validation data
         """
         self.models = {
             "LSTM": self.lstm_model,
@@ -24,9 +22,20 @@ class deepL():
             "CNN-BiLSTM-Attention": self.cnn_bilstm_attention_model,
             "TCN": self.tcn_model,
         }
+        self.train_set = None
+        self.valid_set = None
+        self.trained_models = {}
+
+    def input_data(self, X_train:pd.DataFrame, X_val:pd.DataFrame, window_size:int=15) -> None:
+        """
+        Prepare input data
+        :param X_train: Training data
+        :param X_val: Validation data
+        :param window_size: Size of the window
+        """
         self.n_features = X_train.shape[-1]
-        self.train_set = self.prepare_sequential_window(X_train, window_size=15, classification=False)
-        self.valid_set = self.prepare_sequential_window(X_val, window_size=15, classification=False)
+        self.train_set = self.prepare_sequential_window(X_train, window_size, classification=False)
+        self.valid_set = self.prepare_sequential_window(X_val, window_size, classification=False)
 
     def train(self, model_name:str, plot_history:bool=False) -> keras.models.Sequential:
         """
@@ -39,25 +48,40 @@ class deepL():
         model = self.models.get(model_name)
         if model is not None:
             return self.models.get(model_name)(plot_history)
+        elif self.train_set is None and self.valid_set is None:
+            raise ValueError("Input data first.")
         else:
-            raise ValueError("Invalid model name.")
+            raise ValueError("Model not supported.")
         
-    def predict(self, model_name, X):
-        model = self.models.get(model_name)
+    def predict(self, model_name:str, X_test:pd.DataFrame) -> np.ndarray:
+        """
+        Predict the target variable
+        :param model_name: Name of the model
+        :param X_test: Test data
+        :return: Predictions
+        """
+        model = self.trained_models.get(model_name)
         if model is not None:
-            return model.predict(X)
-        else:
-            raise ValueError("Invalid model name.")
-        
-    def evaluate(self, model_name:str) -> tuple:
-        model = self.models.get(model_name)
-        if model is not None:
-            y_pred = model.predict(self.test_set)
+            y_pred = model.predict(self.prepare_sequential_window(X_test, window_size=15, classification=False))
             y_pred = y_pred.reshape(-1, 1)
-            print(len(y_pred))
+            return y_pred
+        else:
+            raise ValueError("Model not trained yet.")
+        
+    def evaluate(self, model_name:str, X_test:pd.DataFrame, plt_pred:bool=False) -> tuple:
+        """
+        Evaluate the model
+        :param model_name: Name of the model
+        :return: Evaluation metrics
+        """
+        model = self.trained_models.get(model_name)
+        if model is not None:
+            test_set = self.prepare_sequential_window(X_test, window_size=15, classification=False)
+            y_pred = model.predict(test_set)
+            y_pred = y_pred.reshape(-1, 1)
 
             y_batch_list = []
-            for _, y_batch in self.test_set:
+            for _, y_batch in test_set:
                 y_batch_list.append(y_batch.numpy())
 
             y_batch_list = np.array(y_batch_list)
@@ -73,10 +97,23 @@ class deepL():
             rmse = np.sqrt(mse)
             r2 = r2_score(original_target, pred)
 
+            if plt_pred:
+                plt = self.plot_predictions(model_name, pred, original_target)
+                return mae, mse, rmse, r2, plt
+
             return mae, mse, rmse, r2
 
         else:
             raise ValueError("Invalid model name.")
+        
+    def load_model(self, model_name:str) -> keras.models.Sequential:
+        """
+        Load the model
+        :param model_name: Name of the model
+        :return: Loaded model
+        """
+        model = keras.models.load_model("../artifacts/{}.h5".format(model_name))
+        return model
 
     def prepare_sequential_window(self, series:pd.DataFrame, window_size:int, classification:bool=False) -> tf.data.Dataset:
         """
@@ -106,23 +143,35 @@ class deepL():
     
     def plot_history(self, model_name:str, history:keras.callbacks.History) -> None:
         """
-        Plot training and validation loss
+        save training and validation loss plot without actually plotting it
         :param history: History of the model
         """
-        plt.figure(figsize=(16, 10))
-        plt.subplot(2, 2, 1)
-        plt.plot(history.history["loss"], label="train")
-        plt.plot(history.history["val_loss"], label="validation")
-        plt.legend()
-        plt.title("{} Loss".format(model_name))
-        plt.subplot(2, 2, 2)
-        plt.plot(history.history["mae"], label="train")
-        plt.plot(history.history["val_mae"], label="validation")
-        plt.legend()
-        plt.title("Mean Absolute Error")
-        plt.savefig("../plots/{}_learning_curve.png".format(model_name))
-        plt.show()
+        fig, ax = plt.subplots()
+        ax.plot(history.history['loss'], label='train')
+        ax.plot(history.history['val_loss'], label='validation')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title('{} Training and Validation Loss'.format(model_name))
+        ax.legend()
+        fig.savefig("../plots/{}_history.png".format(model_name))
+        plt.close(fig)
     
+    def plot_predictions(self, model_name:str, y_pred:np.ndarray, y_test:np.ndarray) -> plt:
+        """
+        Plot predictions
+        :param model_name: Name of the model
+        :param y_pred: Predictions
+        :param y_test: Actual values
+        :return: Figure
+        """
+        plt.figure(figsize=(16, 10))
+        plt.plot(y_pred, label="predictions")
+        plt.plot(y_test, label="actual")
+        plt.legend()
+        plt.title("{} Predictions vs Actuals".format(model_name))
+        plt.savefig("../plots/{}_predictions.png".format(model_name))
+        return plt
+
     def lstm_model(self, plot_history:bool) -> keras.models.Sequential:
         """
         Build LSTM model
@@ -168,13 +217,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["LSTM"] = model
 
         if plot_history:
             self.plot_history("LSTM" , history)
@@ -199,8 +250,8 @@ class deepL():
             ),
             keras.layers.GRU(100, return_sequences=True, stateful=True),
             keras.layers.GRU(100, return_sequences=True, stateful=True),
-            keras.layers.GRU(0.2),
-            keras.layers.GRU(1, activation="linear"),
+            keras.layers.Dropout(0.2),
+            keras.layers.Dense(1, activation="linear"),
         ]   
         )
 
@@ -221,18 +272,20 @@ class deepL():
             verbose=1,
         )
         checkpoint = keras.callbacks.ModelCheckpoint(
-            "../artifacts/lstm.h5", save_best_only=True, monitor="val_loss", mode="min"
+            "../artifacts/GRU.h5", save_best_only=True, monitor="val_loss", mode="min"
         )
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["GRU"] = model
 
         if plot_history:
             self.plot_history("GRU" , history)
@@ -247,24 +300,24 @@ class deepL():
         """
         keras.backend.clear_session()
         
-        model = keras.Sequential()
+        model = keras.models.Sequential()
         model.add(
-            keras.Bidirectional(
-                keras.LSTM(100, return_sequences=True, stateful=True), batch_input_shape=[1, None, self.n_features]
+            keras.layers.Bidirectional(
+                keras.layers.LSTM(100, return_sequences=True, stateful=True), batch_input_shape=[1, None, self.n_features]
             )
         )
         model.add(
-            keras.Bidirectional(
-                keras.LSTM(100, return_sequences=True, stateful=True)
+            keras.layers.Bidirectional(
+                keras.layers.LSTM(100, return_sequences=True, stateful=True)
             )
         )
         model.add(
-            keras.Bidirectional(
-                keras.LSTM(100, return_sequences=True, stateful=True)
+            keras.layers.Bidirectional(
+                keras.layers.LSTM(100, return_sequences=True, stateful=True)
             )
         )
-        model.add(keras.Dropout(rate=0.2))
-        model.add(keras.Dense(units=1, activation="linear"))
+        model.add(keras.layers.Dropout(rate=0.2))
+        model.add(keras.layers.Dense(units=1, activation="linear"))
 
         model.compile(loss="mse", optimizer="adam", metrics=["mse", "mae", "mape"])
 
@@ -288,13 +341,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["BiLSTM"] = model
 
         if plot_history:
             self.plot_history("BiLSTM" , history)
@@ -311,7 +366,7 @@ class deepL():
         
         model = keras.models.Sequential(
         [
-        # 1D-Conv layer will slide filters across one-dimension (time axis) of the input; kernel:filter
+        # 1D-Conv layer will slide filters across one-dimension (time axis) of the input; kernel:filter size
         keras.layers.Conv1D(
             filters=20,
             kernel_size=4,
@@ -350,13 +405,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["CNN-LSTM"] = model
 
         if plot_history:
             self.plot_history("cnn-lstm" , history)
@@ -373,7 +430,6 @@ class deepL():
         
         model = keras.models.Sequential(
         [
-        # 1D-Conv layer will slide filters across one-dimension (time axis) of the input; kernel:filter
         keras.layers.Conv1D(
             filters=20,
             kernel_size=4,
@@ -411,13 +467,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["CNN-GRU"] = model
 
         if plot_history:
             self.plot_history("CNN-GRU", history)
@@ -434,7 +492,6 @@ class deepL():
         
         model = keras.models.Sequential(
     [
-        # 1D-Conv layer will slide filters across one-dimension (time axis) of the input; kernel:filter
         keras.layers.Conv1D(
             filters=20,
             kernel_size=4,
@@ -472,13 +529,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["CNN-BiLSTM"] = model
 
         if plot_history:
             self.plot_history("CNN-BiLSTM", history)
@@ -552,13 +611,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["CNN-BiLSTM-Attention"] = model
 
         if plot_history:
             self.plot_history("CNN-BiLSTM-Attention",history)
@@ -573,7 +634,7 @@ class deepL():
         """
         keras.backend.clear_session()
         
-        model = keras.Sequential(
+        model = keras.models.Sequential(
     [
         TCN(
             batch_input_shape=(1, None, self.n_features),
@@ -589,11 +650,9 @@ class deepL():
             use_weight_norm=False,
             use_layer_norm=False,
         ),
-        keras.Dense(1, activation="linear"),
-    ]
-)
-
-
+        keras.layers.Dense(1, activation="linear"),
+    ])
+        
         model.compile(loss="mse", optimizer="adam", metrics=["mse", "mae", "mape"])
 
         early_stopping = keras.callbacks.EarlyStopping(
@@ -616,13 +675,15 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=5,
+            epochs=200,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
             shuffle=False,
             callbacks=[early_stopping, lr_schedule, checkpoint]
         )
+
+        self.trained_models["TCN"] = model
 
         if plot_history:
             self.plot_history("TCN",history)

@@ -45,4 +45,3 @@ def filtered_heatmap(df:pd.DataFrame, absthreshold:int=0) -> pd.DataFrame:
             passed.add(c)
     passed = sorted(passed)
     return df.loc[passed,passed]
-
