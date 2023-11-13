@@ -1,5 +1,6 @@
 import pandas as pd
 from itertools import combinations
+import matplotlib.pyplot as plt
 
 def load_energy_data(file_path:str="../data/raw/energy_dataset.csv", date:str="time") -> pd.DataFrame:
     df = pd.read_csv(file_path, parse_dates=[date])
@@ -45,3 +46,31 @@ def filtered_heatmap(df:pd.DataFrame, absthreshold:int=0) -> pd.DataFrame:
             passed.add(c)
     passed = sorted(passed)
     return df.loc[passed,passed]
+
+def compare_metrics(eval_df:pd.DataFrame, stat:str, metrics:list) -> None:
+    """
+    Compare the mean or standard deviation of each metric for each model
+    :param eval_df: dataframe with evaluation metrics for each model
+    :param stat: 'mean' or 'std'
+    :param metrics: list of metrics to compare
+    :return: None
+    """
+    fig, axes = plt.subplots(1, len(metrics), figsize=(15, 4))
+
+    for i, metric in enumerate(metrics):
+        ax = axes[i]
+        ax.bar(eval_df['Model'], eval_df[metric].apply(lambda x: eval(f'np.{stat}(x)')), color='skyblue')
+        ax.set_title(metric)
+        ax.set_xlabel('Model')
+        ax.set_ylabel(metric)
+        ax.set_xticklabels(eval_df['Model'], rotation=45, ha='right')
+        ax.yaxis.grid()
+
+    # Adjust the layout to avoid overlapping titles
+    plt.tight_layout()
+
+    # Save the plot
+    plt.savefig(f'../plots/metrics_{stat}.png')
+
+    # Show the plot
+    plt.show()

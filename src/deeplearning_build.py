@@ -112,7 +112,12 @@ class deepL():
         :param model_name: Name of the model
         :return: Loaded model
         """
-        model = keras.models.load_model("../artifacts/{}.h5".format(model_name))
+        if model_name == "TCN":
+            with keras.utils.custom_object_scope({'TCN': TCN}):
+                model = keras.models.load_model("../artifacts/{}.h5".format(model_name))
+        else:
+            model = keras.models.load_model("../artifacts/{}.h5".format(model_name))
+        self.trained_models[model_name] = model
         return model
 
     def prepare_sequential_window(self, series:pd.DataFrame, window_size:int, classification:bool=False) -> tf.data.Dataset:
@@ -217,7 +222,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -277,7 +282,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -341,7 +346,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -405,7 +410,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -467,7 +472,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -529,7 +534,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -606,12 +611,12 @@ class deepL():
             verbose=1,
         )
         checkpoint = keras.callbacks.ModelCheckpoint(
-            "../artifacts/cnn-bilstm-attn.h5", save_best_only=True, monitor="val_loss", mode="min"
+            "../artifacts/CNN-BiLSTM-Attention.h5", save_best_only=True, monitor="val_loss", mode="min"
         )
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
@@ -675,7 +680,7 @@ class deepL():
 
         history = model.fit(
             self.train_set,
-            epochs=200,
+            epochs=50,
             batch_size=32,
             validation_data=self.valid_set,
             verbose=1,
