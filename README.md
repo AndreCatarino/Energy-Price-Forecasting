@@ -14,4 +14,4 @@ Constraints:
 
 Approach:
 
-- The project explores multiple deep learning architectures, including LSTM, TCN, an attention mechanism and hybrid models like CNN-LSTM, to predict the next hour's electricity price (sequence-to-vector). Forward chaining is employed to assess the best performing model. During the model evaluation on the test set, the performance of the selected model is then compared against a persistence model baseline, surpassing the baseline in all considered regression metrics (MAE, MSE, RMSE, and R2).
+- This project includes a comprehensive feature engineering process and explores multiple deep learning architectures, including LSTM, TCN, an attention mechanism and hybrid models like CNN-LSTM, to predict the next hour's electricity price (sequence-to-vector). Forward chaining is employed to assess the best performing model. During the model evaluation on the test set, the performance of the selected model is then compared against a persistence model baseline, surpassing the baseline in all considered regression metrics (MAE, MSE, RMSE, and R2).
